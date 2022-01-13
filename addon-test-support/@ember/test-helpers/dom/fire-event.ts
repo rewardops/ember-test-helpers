@@ -335,6 +335,7 @@ function _prepareReactOnChangeEvent(element: FormControl) {
   // @ts-expect-error: `_valueTracker` is a React-specific property (not native)
   const tracker = element._valueTracker;
   if (tracker) {
-    tracker.setValue('');
+    const currentTrackerValue = tracker.getValue();
+    tracker.setValue(currentTrackerValue === '' ? ' ' : '');
   }
 }
