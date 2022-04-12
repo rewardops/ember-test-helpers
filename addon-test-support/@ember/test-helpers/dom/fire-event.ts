@@ -91,61 +91,59 @@ function fireEvent(
   @param {Object} [options] additional properties to be set on the event
   @returns {Event} the event that was dispatched
 */
-function fireEvent(
+async function fireEvent(
   element: Element | Document | Window,
   eventType: string,
   options = {}
 ): Promise<Event | void> {
-  return Promise.resolve()
-    .then(() => runHooks('fireEvent', 'start', element))
-    .then(() => runHooks(`fireEvent:${eventType}`, 'start', element))
-    .then(() => {
-      if (!element) {
-        throw new Error('Must pass an element to `fireEvent`');
-      }
+  await runHooks('fireEvent', 'start', element);
+  await runHooks(`fireEvent:${eventType}`, 'start', element);
 
-      let event;
-      if (isKeyboardEventType(eventType)) {
-        event = _buildKeyboardEvent(eventType, options);
-      } else if (isMouseEventType(eventType)) {
-        let rect;
-        if (element instanceof Window && element.document.documentElement) {
-          rect = element.document.documentElement.getBoundingClientRect();
-        } else if (isDocument(element)) {
-          rect = element.documentElement!.getBoundingClientRect();
-        } else if (isElement(element)) {
-          rect = element.getBoundingClientRect();
-        } else {
-          return;
-        }
+  if (!element) {
+    throw new Error('Must pass an element to `fireEvent`');
+  }
 
-        let x = rect.left + 1;
-        let y = rect.top + 1;
-        let simulatedCoordinates = {
-          screenX: x + 5, // Those numbers don't really mean anything.
-          screenY: y + 95, // They're just to make the screenX/Y be different of clientX/Y..
-          clientX: x,
-          clientY: y,
-          ...options,
-        };
+  let event;
+  if (isKeyboardEventType(eventType)) {
+    event = _buildKeyboardEvent(eventType, options);
+  } else if (isMouseEventType(eventType)) {
+    let rect;
+    if (element instanceof Window && element.document.documentElement) {
+      rect = element.document.documentElement.getBoundingClientRect();
+    } else if (isDocument(element)) {
+      rect = element.documentElement!.getBoundingClientRect();
+    } else if (isElement(element)) {
+      rect = element.getBoundingClientRect();
+    } else {
+      return;
+    }
 
-        event = buildMouseEvent(eventType, simulatedCoordinates);
-      } else if (
-        isFileSelectionEventType(eventType) &&
-        isFileSelectionInput(element)
-      ) {
-        event = buildFileEvent(eventType, element, options);
-      } else {
-        event = buildBasicEvent(eventType, options);
-      }
+    let x = rect.left + 1;
+    let y = rect.top + 1;
+    let simulatedCoordinates = {
+      screenX: x + 5, // Those numbers don't really mean anything.
+      screenY: y + 95, // They're just to make the screenX/Y be different of clientX/Y..
+      clientX: x,
+      clientY: y,
+      ...options,
+    };
 
-      element.dispatchEvent(event);
-      return event;
-    })
-    .then((event) =>
-      runHooks(`fireEvent:${eventType}`, 'end', element).then(() => event)
-    )
-    .then((event) => runHooks('fireEvent', 'end', element).then(() => event));
+    event = buildMouseEvent(eventType, simulatedCoordinates);
+  } else if (
+    isFileSelectionEventType(eventType) &&
+    isFileSelectionInput(element)
+  ) {
+    event = buildFileEvent(eventType, element, options);
+  } else {
+    event = buildBasicEvent(eventType, options);
+  }
+
+  element.dispatchEvent(event);
+
+  await runHooks(`fireEvent:${eventType}`, 'end', element);
+  await runHooks('fireEvent', 'end', element);
+
+  return event;
 }
 
 export default fireEvent;

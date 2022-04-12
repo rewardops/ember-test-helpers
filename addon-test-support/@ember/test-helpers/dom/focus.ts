@@ -12,11 +12,6 @@ registerHook('focus', 'start', (target: Target) => {
   log('focus', target);
 });
 
-type FocusRecord = {
-  focusTarget: HTMLElement | SVGElement;
-  previousFocusedElement?: HTMLElement | SVGElement | null;
-};
-
 /**
    Get the closest focusable ancestor of a given element (or the element itself
    if it's focusable)
@@ -44,68 +39,48 @@ function getClosestFocusable(
 /**
   @private
   @param {Element} element the element to trigger events on
-  @return {Promise<FocusRecord | Event | void>} resolves when settled
 */
-export function __focus__(
+export async function __focus__(
   element: HTMLElement | Element | Document | SVGElement
-): Promise<FocusRecord | Event | void> {
-  return Promise.resolve()
-    .then(() => {
-      let focusTarget = getClosestFocusable(element);
+): Promise<void> {
+  let focusTarget = getClosestFocusable(element);
 
-      const previousFocusedElement =
-        document.activeElement &&
-        document.activeElement !== focusTarget &&
-        isFocusable(document.activeElement)
-          ? document.activeElement
-          : null;
+  const previousFocusedElement =
+    document.activeElement &&
+    document.activeElement !== focusTarget &&
+    isFocusable(document.activeElement)
+      ? document.activeElement
+      : null;
 
-      // fire __blur__ manually with the null relatedTarget when the target is not focusable
-      // and there was a previously focused element
-      return !focusTarget && previousFocusedElement
-        ? __blur__(previousFocusedElement, null).then(() =>
-            Promise.resolve({ focusTarget, previousFocusedElement })
-          )
-        : Promise.resolve({ focusTarget, previousFocusedElement });
-    })
-    .then(({ focusTarget, previousFocusedElement }) => {
-      if (!focusTarget) {
-        throw new Error('There was a previously focused element');
-      }
+  // fire __blur__ manually with the null relatedTarget when the target is not focusable
+  // and there was a previously focused element
+  if (!focusTarget) {
+    if (previousFocusedElement) {
+      await __blur__(previousFocusedElement, null);
+    }
 
-      let browserIsNotFocused = !document?.hasFocus();
+    return;
+  }
 
-      // fire __blur__ manually with the correct relatedTarget when the browser is not
-      // already in focus and there was a previously focused element
-      return previousFocusedElement && browserIsNotFocused
-        ? __blur__(previousFocusedElement, focusTarget).then(() =>
-            Promise.resolve({ focusTarget })
-          )
-        : Promise.resolve({ focusTarget });
-    })
-    .then(({ focusTarget }) => {
-      // makes `document.activeElement` be `element`. If the browser is focused, it also fires a focus event
-      focusTarget.focus();
+  let browserIsNotFocused = document.hasFocus && !document.hasFocus();
 
-      // Firefox does not trigger the `focusin` event if the window
-      // does not have focus. If the document does not have focus then
-      // fire `focusin` event as well.
-      let browserIsFocused = document?.hasFocus();
-      return browserIsFocused
-        ? Promise.resolve()
-        : // if the browser is not focused the previous `el.focus()` didn't fire an event, so we simulate it
-          Promise.resolve()
-            .then(() =>
-              fireEvent(focusTarget as HTMLElement | SVGElement, 'focus', {
-                bubbles: false,
-              })
-            )
-            .then(() =>
-              fireEvent(focusTarget as HTMLElement | SVGElement, 'focusin')
-            )
-            .then(() => settled());
-    })
-    .catch(() => {});
+  // fire __blur__ manually with the correct relatedTarget when the browser is not
+  // already in focus and there was a previously focused element
+  if (previousFocusedElement && browserIsNotFocused) {
+    await __blur__(previousFocusedElement, focusTarget);
+  }
+
+  // makes `document.activeElement` be `element`. If the browser is focused, it also fires a focus event
+  focusTarget.focus();
+
+  // Firefox does not trigger the `focusin` event if the window
+  // does not have focus. If the document does not have focus then
+  // fire `focusin` event as well.
+  if (browserIsNotFocused) {
+    // if the browser is not focused the previous `el.focus()` didn't fire an event, so we simulate it
+    await fireEvent(focusTarget, 'focus', { bubbles: false });
+    await fireEvent(focusTarget, 'focusin');
+  }
 }
 
 /**
@@ -133,26 +108,24 @@ export function __focus__(
 
   focus('input');
 */
-export default function focus(target: Target): Promise<void> {
-  return Promise.resolve()
-    .then(() => runHooks('focus', 'start', target))
-    .then(() => {
-      if (!target) {
-        throw new Error('Must pass an element or selector to `focus`.');
-      }
+export default async function focus(target: Target): Promise<void> {
+  await runHooks('focus', 'start', target);
 
-      let element = getElement(target);
-      if (!element) {
-        throw new Error(
-          `Element not found when calling \`focus('${target}')\`.`
-        );
-      }
+  if (!target) {
+    throw new Error('Must pass an element or selector to `focus`.');
+  }
 
-      if (!isFocusable(element)) {
-        throw new Error(`${element} is not focusable`);
-      }
+  let element = getElement(target);
+  if (!element) {
+    throw new Error(`Element not found when calling \`focus('${target}')\`.`);
+  }
 
-      return __focus__(element).then(settled);
-    })
-    .then(() => runHooks('focus', 'end', target));
+  if (!isFocusable(element)) {
+    throw new Error(`${element} is not focusable`);
+  }
+
+  await __focus__(element);
+  await settled();
+
+  await runHooks('focus', 'end', target);
 }

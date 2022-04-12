@@ -140,47 +140,44 @@ function keyCodeFromKey(key: string) {
   @param {'keydown' | 'keyup' | 'keypress'} eventType the type of event to trigger
   @param {number|string} key the `keyCode`(number) or `key`(string) of the event being triggered
   @param {Object} [modifiers] the state of various modifier keys
-  @return {Promise<Event>} resolves when settled
  */
-export function __triggerKeyEvent__(
+export async function __triggerKeyEvent__(
   element: Element | Document,
   eventType: KeyboardEventType,
   key: number | string,
   modifiers: KeyModifiers = DEFAULT_MODIFIERS
-): Promise<Event> {
-  return Promise.resolve().then(() => {
-    let props;
-    if (typeof key === 'number') {
-      props = {
-        keyCode: key,
-        which: key,
-        key: keyFromKeyCodeAndModifiers(key, modifiers),
-        ...modifiers,
-      };
-    } else if (typeof key === 'string' && key.length !== 0) {
-      let firstCharacter = key[0];
-      if (firstCharacter !== firstCharacter.toUpperCase()) {
-        throw new Error(
-          `Must provide a \`key\` to \`triggerKeyEvent\` that starts with an uppercase character but you passed \`${key}\`.`
-        );
-      }
-
-      if (isNumeric(key) && key.length > 1) {
-        throw new Error(
-          `Must provide a numeric \`keyCode\` to \`triggerKeyEvent\` but you passed \`${key}\` as a string.`
-        );
-      }
-
-      let keyCode = keyCodeFromKey(key);
-      props = { keyCode, which: keyCode, key, ...modifiers };
-    } else {
+) {
+  let props;
+  if (typeof key === 'number') {
+    props = {
+      keyCode: key,
+      which: key,
+      key: keyFromKeyCodeAndModifiers(key, modifiers),
+      ...modifiers,
+    };
+  } else if (typeof key === 'string' && key.length !== 0) {
+    let firstCharacter = key[0];
+    if (firstCharacter !== firstCharacter.toUpperCase()) {
       throw new Error(
-        `Must provide a \`key\` or \`keyCode\` to \`triggerKeyEvent\``
+        `Must provide a \`key\` to \`triggerKeyEvent\` that starts with an uppercase character but you passed \`${key}\`.`
       );
     }
 
-    return fireEvent(element, eventType, props);
-  });
+    if (isNumeric(key) && key.length > 1) {
+      throw new Error(
+        `Must provide a numeric \`keyCode\` to \`triggerKeyEvent\` but you passed \`${key}\` as a string.`
+      );
+    }
+
+    let keyCode = keyCodeFromKey(key);
+    props = { keyCode, which: keyCode, key, ...modifiers };
+  } else {
+    throw new Error(
+      `Must provide a \`key\` or \`keyCode\` to \`triggerKeyEvent\``
+    );
+  }
+
+  await fireEvent(element, eventType, props);
 }
 
 /**
@@ -206,48 +203,42 @@ export function __triggerKeyEvent__(
   </caption>
   triggerKeyEvent('button', 'keydown', 'Enter');
 */
-export default function triggerKeyEvent(
+export default async function triggerKeyEvent(
   target: Target,
   eventType: KeyboardEventType,
   key: number | string,
   modifiers: KeyModifiers = DEFAULT_MODIFIERS
 ): Promise<void> {
-  return Promise.resolve()
-    .then(() => {
-      return runHooks('triggerKeyEvent', 'start', target, eventType, key);
-    })
-    .then(() => {
-      if (!target) {
-        throw new Error(
-          'Must pass an element or selector to `triggerKeyEvent`.'
-        );
-      }
+  await runHooks('triggerKeyEvent', 'start', target, eventType, key);
 
-      let element = getElement(target);
-      if (!element) {
-        throw new Error(
-          `Element not found when calling \`triggerKeyEvent('${target}', ...)\`.`
-        );
-      }
+  if (!target) {
+    throw new Error('Must pass an element or selector to `triggerKeyEvent`.');
+  }
 
-      if (!eventType) {
-        throw new Error(`Must provide an \`eventType\` to \`triggerKeyEvent\``);
-      }
+  let element = getElement(target);
+  if (!element) {
+    throw new Error(
+      `Element not found when calling \`triggerKeyEvent('${target}', ...)\`.`
+    );
+  }
 
-      if (!isKeyboardEventType(eventType)) {
-        let validEventTypes = KEYBOARD_EVENT_TYPES.join(', ');
-        throw new Error(
-          `Must provide an \`eventType\` of ${validEventTypes} to \`triggerKeyEvent\` but you passed \`${eventType}\`.`
-        );
-      }
+  if (!eventType) {
+    throw new Error(`Must provide an \`eventType\` to \`triggerKeyEvent\``);
+  }
 
-      if (isFormControl(element) && element.disabled) {
-        throw new Error(`Can not \`triggerKeyEvent\` on disabled ${element}`);
-      }
+  if (!isKeyboardEventType(eventType)) {
+    let validEventTypes = KEYBOARD_EVENT_TYPES.join(', ');
+    throw new Error(
+      `Must provide an \`eventType\` of ${validEventTypes} to \`triggerKeyEvent\` but you passed \`${eventType}\`.`
+    );
+  }
 
-      return __triggerKeyEvent__(element, eventType, key, modifiers).then(
-        settled
-      );
-    })
-    .then(() => runHooks('triggerKeyEvent', 'end', target, eventType, key));
+  if (isFormControl(element) && element.disabled) {
+    throw new Error(`Can not \`triggerKeyEvent\` on disabled ${element}`);
+  }
+
+  await __triggerKeyEvent__(element, eventType, key, modifiers);
+  await settled();
+
+  await runHooks('triggerKeyEvent', 'end', target, eventType, key);
 }

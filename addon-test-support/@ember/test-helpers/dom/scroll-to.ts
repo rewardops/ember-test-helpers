@@ -21,39 +21,39 @@ import { runHooks } from '../-internal/helper-hooks';
   scrollTo('#my-long-div', 0, 0); // scroll to top
   scrollTo('#my-long-div', 0, 100); // scroll down
 */
-export default function scrollTo(
+export default async function scrollTo(
   target: string | HTMLElement,
   x: number,
   y: number
 ): Promise<void> {
-  return Promise.resolve()
-    .then(() => runHooks('scrollTo', 'start', target))
-    .then(() => {
-      if (!target) {
-        throw new Error('Must pass an element or selector to `scrollTo`.');
-      }
+  await runHooks('scrollTo', 'start', target);
 
-      if (x === undefined || y === undefined) {
-        throw new Error('Must pass both x and y coordinates to `scrollTo`.');
-      }
+  if (!target) {
+    throw new Error('Must pass an element or selector to `scrollTo`.');
+  }
 
-      let element = getElement(target);
-      if (!element) {
-        throw new Error(
-          `Element not found when calling \`scrollTo('${target}')\`.`
-        );
-      }
+  if (x === undefined || y === undefined) {
+    throw new Error('Must pass both x and y coordinates to `scrollTo`.');
+  }
 
-      if (!isElement(element)) {
-        throw new Error(
-          `"target" must be an element, but was a ${element.nodeType} when calling \`scrollTo('${target}')\`.`
-        );
-      }
+  let element = getElement(target);
+  if (!element) {
+    throw new Error(
+      `Element not found when calling \`scrollTo('${target}')\`.`
+    );
+  }
 
-      element.scrollTop = y;
-      element.scrollLeft = x;
+  if (!isElement(element)) {
+    throw new Error(
+      `"target" must be an element, but was a ${element.nodeType} when calling \`scrollTo('${target}')\`.`
+    );
+  }
 
-      return fireEvent(element, 'scroll').then(settled);
-    })
-    .then(() => runHooks('scrollTo', 'end', target));
+  element.scrollTop = y;
+  element.scrollLeft = x;
+
+  await fireEvent(element, 'scroll');
+  await settled();
+
+  await runHooks('scrollTo', 'end', target);
 }

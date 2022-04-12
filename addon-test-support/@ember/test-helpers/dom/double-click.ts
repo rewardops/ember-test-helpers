@@ -17,25 +17,23 @@ registerHook('doubleClick', 'start', (target: Target) => {
   @private
   @param {Element} element the element to double-click on
   @param {MouseEventInit} options the options to be merged into the mouse events
-  @returns {Promise<Event | void>} resolves when settled
 */
-export function __doubleClick__(
+export async function __doubleClick__(
   element: Element | Document | Window,
   options: MouseEventInit
-): Promise<Event | void> {
-  return Promise.resolve()
-    .then(() => fireEvent(element, 'mousedown', options))
-    .then((mouseDownEvent) => {
-      return !isWindow(element) && !mouseDownEvent?.defaultPrevented
-        ? __focus__(element)
-        : Promise.resolve();
-    })
-    .then(() => fireEvent(element, 'mouseup', options))
-    .then(() => fireEvent(element, 'click', options))
-    .then(() => fireEvent(element, 'mousedown', options))
-    .then(() => fireEvent(element, 'mouseup', options))
-    .then(() => fireEvent(element, 'click', options))
-    .then(() => fireEvent(element, 'dblclick', options));
+): Promise<void> {
+  let mouseDownEvent = await fireEvent(element, 'mousedown', options);
+
+  if (!isWindow(element) && !mouseDownEvent?.defaultPrevented) {
+    await __focus__(element);
+  }
+
+  await fireEvent(element, 'mouseup', options);
+  await fireEvent(element, 'click', options);
+  await fireEvent(element, 'mousedown', options);
+  await fireEvent(element, 'mouseup', options);
+  await fireEvent(element, 'click', options);
+  await fireEvent(element, 'dblclick', options);
 }
 
 /**
@@ -91,31 +89,31 @@ export function __doubleClick__(
 
   doubleClick('button', { shiftKey: true });
 */
-export default function doubleClick(
+export default async function doubleClick(
   target: Target,
   _options: MouseEventInit = {}
 ): Promise<void> {
   let options = { ...DEFAULT_CLICK_OPTIONS, ..._options };
 
-  return Promise.resolve()
-    .then(() => runHooks('doubleClick', 'start', target, _options))
-    .then(() => {
-      if (!target) {
-        throw new Error('Must pass an element or selector to `doubleClick`.');
-      }
+  await runHooks('doubleClick', 'start', target, _options);
 
-      let element = getWindowOrElement(target);
-      if (!element) {
-        throw new Error(
-          `Element not found when calling \`doubleClick('${target}')\`.`
-        );
-      }
+  if (!target) {
+    throw new Error('Must pass an element or selector to `doubleClick`.');
+  }
 
-      if (isFormControl(element) && element.disabled) {
-        throw new Error(`Can not \`doubleClick\` disabled ${element}`);
-      }
+  let element = getWindowOrElement(target);
+  if (!element) {
+    throw new Error(
+      `Element not found when calling \`doubleClick('${target}')\`.`
+    );
+  }
 
-      return __doubleClick__(element, options).then(settled);
-    })
-    .then(() => runHooks('doubleClick', 'end', target, _options));
+  if (isFormControl(element) && element.disabled) {
+    throw new Error(`Can not \`doubleClick\` disabled ${element}`);
+  }
+
+  await __doubleClick__(element, options);
+  await settled();
+
+  await runHooks('doubleClick', 'end', target, _options);
 }

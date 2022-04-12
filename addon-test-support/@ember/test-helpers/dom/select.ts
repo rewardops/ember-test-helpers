@@ -30,72 +30,64 @@ import { runHooks } from '../-internal/helper-hooks';
 
   select('select', ['apple', 'orange'], true);
 */
-export default function select(
+export default async function select(
   target: Target,
   options: string | string[],
   keepPreviouslySelected = false
-): Promise<void> {
-  return Promise.resolve()
-    .then(() =>
-      runHooks('select', 'start', target, options, keepPreviouslySelected)
-    )
-    .then(() => {
-      if (!target) {
-        throw new Error('Must pass an element or selector to `select`.');
-      }
+) {
+  await runHooks('select', 'start', target, options, keepPreviouslySelected);
 
-      if (typeof options === 'undefined' || options === null) {
-        throw new Error(
-          'Must provide an `option` or `options` to select when calling `select`.'
-        );
-      }
+  if (!target) {
+    throw new Error('Must pass an element or selector to `select`.');
+  }
 
-      const element = getElement(target);
-      if (!element) {
-        throw new Error(
-          `Element not found when calling \`select('${target}')\`.`
-        );
-      }
-
-      if (!isSelectElement(element)) {
-        throw new Error(
-          `Element is not a HTMLSelectElement when calling \`select('${target}')\`.`
-        );
-      }
-
-      if (element.disabled) {
-        throw new Error(
-          `Element is disabled when calling \`select('${target}')\`.`
-        );
-      }
-
-      options = Array.isArray(options) ? options : [options];
-
-      if (!element.multiple && options.length > 1) {
-        throw new Error(
-          `HTMLSelectElement \`multiple\` attribute is set to \`false\` but multiple options were passed when calling \`select('${target}')\`.`
-        );
-      }
-
-      return __focus__(element).then(() => element);
-    })
-    .then((element) => {
-      for (let i = 0; i < element.options.length; i++) {
-        let elementOption = element.options.item(i);
-        if (elementOption) {
-          if (options.indexOf(elementOption.value) > -1) {
-            elementOption.selected = true;
-          } else if (!keepPreviouslySelected) {
-            elementOption.selected = false;
-          }
-        }
-      }
-
-      return fireEvent(element, 'input')
-        .then(() => fireEvent(element, 'change'))
-        .then(settled);
-    })
-    .then(() =>
-      runHooks('select', 'end', target, options, keepPreviouslySelected)
+  if (typeof options === 'undefined' || options === null) {
+    throw new Error(
+      'Must provide an `option` or `options` to select when calling `select`.'
     );
+  }
+
+  const element = getElement(target);
+  if (!element) {
+    throw new Error(`Element not found when calling \`select('${target}')\`.`);
+  }
+
+  if (!isSelectElement(element)) {
+    throw new Error(
+      `Element is not a HTMLSelectElement when calling \`select('${target}')\`.`
+    );
+  }
+
+  if (element.disabled) {
+    throw new Error(
+      `Element is disabled when calling \`select('${target}')\`.`
+    );
+  }
+
+  options = Array.isArray(options) ? options : [options];
+
+  if (!element.multiple && options.length > 1) {
+    throw new Error(
+      `HTMLSelectElement \`multiple\` attribute is set to \`false\` but multiple options were passed when calling \`select('${target}')\`.`
+    );
+  }
+
+  await __focus__(element);
+
+  for (let i = 0; i < element.options.length; i++) {
+    let elementOption = element.options.item(i);
+    if (elementOption) {
+      if (options.indexOf(elementOption.value) > -1) {
+        elementOption.selected = true;
+      } else if (!keepPreviouslySelected) {
+        elementOption.selected = false;
+      }
+    }
+  }
+
+  await fireEvent(element, 'input');
+  await fireEvent(element, 'change');
+  await settled();
+
+  await runHooks('select', 'end', target, options, keepPreviouslySelected);
 }

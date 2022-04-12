@@ -54,38 +54,34 @@ registerHook('triggerEvent', 'start', (target: Target, eventType: string) => {
  *   }
  * )
  */
-export default function triggerEvent(
+export default async function triggerEvent(
   target: Target,
   eventType: string,
   options?: object
 ): Promise<void> {
-  return Promise.resolve()
-    .then(() => {
-      return runHooks('triggerEvent', 'start', target, eventType, options);
-    })
-    .then(() => {
-      if (!target) {
-        throw new Error('Must pass an element or selector to `triggerEvent`.');
-      }
+  await runHooks('triggerEvent', 'start', target, eventType, options);
 
-      if (!eventType) {
-        throw new Error(`Must provide an \`eventType\` to \`triggerEvent\``);
-      }
+  if (!target) {
+    throw new Error('Must pass an element or selector to `triggerEvent`.');
+  }
 
-      let element = getWindowOrElement(target);
-      if (!element) {
-        throw new Error(
-          `Element not found when calling \`triggerEvent('${target}', ...)\`.`
-        );
-      }
+  if (!eventType) {
+    throw new Error(`Must provide an \`eventType\` to \`triggerEvent\``);
+  }
 
-      if (isFormControl(element) && element.disabled) {
-        throw new Error(`Can not \`triggerEvent\` on disabled ${element}`);
-      }
+  let element = getWindowOrElement(target);
+  if (!element) {
+    throw new Error(
+      `Element not found when calling \`triggerEvent('${target}', ...)\`.`
+    );
+  }
 
-      return fireEvent(element, eventType, options).then(settled);
-    })
-    .then(() => {
-      return runHooks('triggerEvent', 'end', target, eventType, options);
-    });
+  if (isFormControl(element) && element.disabled) {
+    throw new Error(`Can not \`triggerEvent\` on disabled ${element}`);
+  }
+
+  await fireEvent(element, eventType, options);
+  await settled();
+
+  await runHooks('triggerEvent', 'end', target, eventType, options);
 }

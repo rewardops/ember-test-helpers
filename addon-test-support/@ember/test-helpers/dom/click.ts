@@ -28,21 +28,19 @@ export const DEFAULT_CLICK_OPTIONS = {
   @private
   @param {Element} element the element to click on
   @param {MouseEventInit} options the options to be merged into the mouse events
-  @return {Promise<Event | void>} resolves when settled
 */
-export function __click__(
+export async function __click__(
   element: Element | Document | Window,
   options: MouseEventInit
-): Promise<Event | void> {
-  return Promise.resolve()
-    .then(() => fireEvent(element, 'mousedown', options))
-    .then((mouseDownEvent) =>
-      !isWindow(element) && !mouseDownEvent?.defaultPrevented
-        ? __focus__(element)
-        : Promise.resolve()
-    )
-    .then(() => fireEvent(element, 'mouseup', options))
-    .then(() => fireEvent(element, 'click', options));
+): Promise<void> {
+  let mouseDownEvent = await fireEvent(element, 'mousedown', options);
+
+  if (!isWindow(element) && !mouseDownEvent?.defaultPrevented) {
+    await __focus__(element);
+  }
+
+  await fireEvent(element, 'mouseup', options);
+  await fireEvent(element, 'click', options);
 }
 
 /**
@@ -90,31 +88,29 @@ export function __click__(
 
   click('button', { shiftKey: true });
 */
-export default function click(
+export default async function click(
   target: Target,
   _options: MouseEventInit = {}
 ): Promise<void> {
   let options = { ...DEFAULT_CLICK_OPTIONS, ..._options };
 
-  return Promise.resolve()
-    .then(() => runHooks('click', 'start', target, _options))
-    .then(() => {
-      if (!target) {
-        throw new Error('Must pass an element or selector to `click`.');
-      }
+  await runHooks('click', 'start', target, _options);
 
-      let element = getWindowOrElement(target);
-      if (!element) {
-        throw new Error(
-          `Element not found when calling \`click('${target}')\`.`
-        );
-      }
+  if (!target) {
+    throw new Error('Must pass an element or selector to `click`.');
+  }
 
-      if (isFormControl(element) && element.disabled) {
-        throw new Error(`Can not \`click\` disabled ${element}`);
-      }
+  let element = getWindowOrElement(target);
+  if (!element) {
+    throw new Error(`Element not found when calling \`click('${target}')\`.`);
+  }
 
-      return __click__(element, options).then(settled);
-    })
-    .then(() => runHooks('click', 'end', target, _options));
+  if (isFormControl(element) && element.disabled) {
+    throw new Error(`Can not \`click\` disabled ${element}`);
+  }
+
+  await __click__(element, options);
+  await settled();
+
+  await runHooks('click', 'end', target, _options);
 }

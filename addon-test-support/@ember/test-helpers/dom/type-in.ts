@@ -46,59 +46,55 @@ registerHook('typeIn', 'start', (target: Target, text: string) => {
  *
  * typeIn('input', 'hello world');
  */
-export default function typeIn(
+export default async function typeIn(
   target: Target,
   text: string,
   options: Options = {}
 ): Promise<void> {
-  return Promise.resolve()
-    .then(() => {
-      return runHooks('typeIn', 'start', target, text, options);
-    })
-    .then(() => {
-      if (!target) {
-        throw new Error('Must pass an element or selector to `typeIn`.');
-      }
+  await runHooks('typeIn', 'start', target, text, options);
 
-      const element = getElement(target);
+  if (!target) {
+    throw new Error('Must pass an element or selector to `typeIn`.');
+  }
 
-      if (!element) {
-        throw new Error(
-          `Element not found when calling \`typeIn('${target}')\``
-        );
-      }
+  const element = getElement(target);
 
-      if (
-        isDocument(element) ||
-        (!isFormControl(element) && !isContentEditable(element))
-      ) {
-        throw new Error(
-          '`typeIn` is only usable on form controls or contenteditable elements.'
-        );
-      }
+  if (!element) {
+    throw new Error(`Element not found when calling \`typeIn('${target}')\``);
+  }
 
-      if (typeof text === 'undefined' || text === null) {
-        throw new Error('Must provide `text` when calling `typeIn`.');
-      }
+  if (
+    isDocument(element) ||
+    (!isFormControl(element) && !isContentEditable(element))
+  ) {
+    throw new Error(
+      '`typeIn` is only usable on form controls or contenteditable elements.'
+    );
+  }
 
-      if (isFormControl(element)) {
-        if (element.disabled) {
-          throw new Error(`Can not \`typeIn\` disabled '${target}'.`);
-        }
+  if (typeof text === 'undefined' || text === null) {
+    throw new Error('Must provide `text` when calling `typeIn`.');
+  }
 
-        if ('readOnly' in element && element.readOnly) {
-          throw new Error(`Can not \`typeIn\` readonly '${target}'.`);
-        }
-      }
+  if (isFormControl(element)) {
+    if (element.disabled) {
+      throw new Error(`Can not \`typeIn\` disabled '${target}'.`);
+    }
 
-      let { delay = 50 } = options;
+    if ('readOnly' in element && element.readOnly) {
+      throw new Error(`Can not \`typeIn\` readonly '${target}'.`);
+    }
+  }
 
-      return __focus__(element)
-        .then(() => fillOut(element, text, delay))
-        .then(() => fireEvent(element, 'change'))
-        .then(settled)
-        .then(() => runHooks('typeIn', 'end', target, text, options));
-    });
+  await __focus__(element);
+
+  let { delay = 50 } = options;
+
+  await fillOut(element, text, delay);
+  await fireEvent(element, 'change');
+  await settled();
+
+  await runHooks('typeIn', 'end', target, text, options);
 }
 
 // eslint-disable-next-line require-jsdoc

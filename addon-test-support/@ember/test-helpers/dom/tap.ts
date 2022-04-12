@@ -45,7 +45,7 @@ registerHook('tap', 'start', (target: Target) => {
   @public
   @param {string|Element} target the element or selector to tap on
   @param {Object} options the options to be merged into the touch events
-  @return {Promise<Event | Event[] | void>} resolves when settled
+  @return {Promise<void>} resolves when settled
 
   @example
   <caption>
@@ -54,42 +54,33 @@ registerHook('tap', 'start', (target: Target) => {
 
   tap('button');
 */
-export default function tap(
+export default async function tap(
   target: Target,
   options: object = {}
-): Promise<Event | Event[] | void> {
-  return Promise.resolve()
-    .then(() => {
-      return runHooks('tap', 'start', target, options);
-    })
-    .then(() => {
-      if (!target) {
-        throw new Error('Must pass an element or selector to `tap`.');
-      }
+): Promise<void> {
+  await runHooks('tap', 'start', target, options);
 
-      let element = getElement(target);
-      if (!element) {
-        throw new Error(`Element not found when calling \`tap('${target}')\`.`);
-      }
+  if (!target) {
+    throw new Error('Must pass an element or selector to `tap`.');
+  }
 
-      if (isFormControl(element) && element.disabled) {
-        throw new Error(`Can not \`tap\` disabled ${element}`);
-      }
+  let element = getElement(target);
+  if (!element) {
+    throw new Error(`Element not found when calling \`tap('${target}')\`.`);
+  }
 
-      return fireEvent(element, 'touchstart', options)
-        .then((touchstartEv) =>
-          fireEvent(element as Element, 'touchend', options).then(
-            (touchendEv) => [touchstartEv, touchendEv]
-          )
-        )
-        .then(([touchstartEv, touchendEv]) =>
-          !touchstartEv.defaultPrevented && !touchendEv.defaultPrevented
-            ? __click__(element as Element, options)
-            : Promise.resolve()
-        )
-        .then(settled);
-    })
-    .then(() => {
-      return runHooks('tap', 'end', target, options);
-    });
+  if (isFormControl(element) && element.disabled) {
+    throw new Error(`Can not \`tap\` disabled ${element}`);
+  }
+
+  let touchstartEv = await fireEvent(element, 'touchstart', options);
+  let touchendEv = await fireEvent(element, 'touchend', options);
+
+  if (!touchstartEv.defaultPrevented && !touchendEv.defaultPrevented) {
+    await __click__(element, options);
+  }
+
+  await settled();
+
+  await runHooks('tap', 'end', target, options);
 }

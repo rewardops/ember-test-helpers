@@ -1,5 +1,5 @@
 import getElement from './-get-element';
-import isFormControl, { FormControl } from './-is-form-control';
+import isFormControl from './-is-form-control';
 import guardForMaxlength from './-guard-for-maxlength';
 import { __focus__ } from './focus';
 import settled from '../settled';
@@ -21,7 +21,6 @@ registerHook('fillIn', 'start', (target: Target, text: string) => {
   @public
   @param {string|Element} target the element or selector to enter text into
   @param {string} text the text to fill into the target element
-  @return {Promise<Element | void>} resolves when the application is settled
 
   @example
   <caption>
@@ -30,58 +29,52 @@ registerHook('fillIn', 'start', (target: Target, text: string) => {
 
   fillIn('input', 'hello world');
 */
-export default function fillIn(
+export default async function fillIn(
   target: Target,
   text: string
-): Promise<Element | void> {
-  return Promise.resolve()
-    .then(() => runHooks('fillIn', 'start', target, text))
-    .then(() => {
-      if (!target) {
-        throw new Error('Must pass an element or selector to `fillIn`.');
-      }
+): Promise<void> {
+  await runHooks('fillIn', 'start', target, text);
 
-      let element = getElement(target) as Element | HTMLElement;
-      if (!element) {
-        throw new Error(
-          `Element not found when calling \`fillIn('${target}')\`.`
-        );
-      }
+  if (!target) {
+    throw new Error('Must pass an element or selector to `fillIn`.');
+  }
 
-      if (typeof text === 'undefined' || text === null) {
-        throw new Error('Must provide `text` when calling `fillIn`.');
-      }
+  let element = getElement(target) as Element | HTMLElement;
+  if (!element) {
+    throw new Error(`Element not found when calling \`fillIn('${target}')\`.`);
+  }
 
-      if (isFormControl(element)) {
-        if (element.disabled) {
-          throw new Error(`Can not \`fillIn\` disabled '${target}'.`);
-        }
+  if (typeof text === 'undefined' || text === null) {
+    throw new Error('Must provide `text` when calling `fillIn`.');
+  }
 
-        if ('readOnly' in element && element.readOnly) {
-          throw new Error(`Can not \`fillIn\` readonly '${target}'.`);
-        }
+  if (isFormControl(element)) {
+    if (element.disabled) {
+      throw new Error(`Can not \`fillIn\` disabled '${target}'.`);
+    }
 
-        guardForMaxlength(element, text, 'fillIn');
+    if ('readOnly' in element && element.readOnly) {
+      throw new Error(`Can not \`fillIn\` readonly '${target}'.`);
+    }
 
-        return __focus__(element).then(() => {
-          (element as FormControl).value = text;
-          return element;
-        });
-      } else if (isContentEditable(element)) {
-        return __focus__(element).then(() => {
-          element.innerHTML = text;
-          return element;
-        });
-      } else {
-        throw new Error(
-          '`fillIn` is only usable on form controls or contenteditable elements.'
-        );
-      }
-    })
-    .then((element) =>
-      fireEvent(element, 'input')
-        .then(() => fireEvent(element, 'change'))
-        .then(settled)
-    )
-    .then(() => runHooks('fillIn', 'end', target, text));
+    guardForMaxlength(element, text, 'fillIn');
+
+    await __focus__(element);
+
+    element.value = text;
+  } else if (isContentEditable(element)) {
+    await __focus__(element);
+
+    element.innerHTML = text;
+  } else {
+    throw new Error(
+      '`fillIn` is only usable on form controls or contenteditable elements.'
+    );
+  }
+
+  await fireEvent(element, 'input');
+  await fireEvent(element, 'change');
+  await settled();
+
+  await runHooks('fillIn', 'end', target, text);
 }
